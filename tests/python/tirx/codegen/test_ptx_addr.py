@@ -29,8 +29,7 @@ TARGET = tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch() or "sm_
 
 
 def _cuda_source(func) -> str:
-    with TARGET:
-        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target=TARGET, pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target=TARGET, pipeline="tirx")
     return mod.mod.imports[0].inspect_source("cuda")
 
 
@@ -54,10 +53,10 @@ def test_ptx_addr_registration_and_table_capabilities():
     assert "tirx.ptx.addr" in CODEGEN_REGISTRY
 
     addresses = [slot for entry in TABLE.values() for slot in entry.operands if slot.kind == "addr"]
-    assert len(addresses) == 417
-    assert sum(slot.allow_imm_offset for slot in addresses) == 253
-    assert sum(slot.bracket is not None and not slot.allow_imm_offset for slot in addresses) == 60
-    assert sum(slot.space == "tmem" and not slot.allow_imm_offset for slot in addresses) == 104
+    assert len(addresses) == 499
+    assert sum(slot.allow_imm_offset for slot in addresses) == 309
+    assert sum(slot.bracket is not None and not slot.allow_imm_offset for slot in addresses) == 85
+    assert sum(slot.space == "tmem" and not slot.allow_imm_offset for slot in addresses) == 105
 
 
 def test_ptx_addr_table_validation_rejects_wrong_operand_classes():

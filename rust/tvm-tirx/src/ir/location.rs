@@ -1,0 +1,341 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+// The generated `new` of a field-less base needs no `Default`, and `UnknownLoc::new` fetches a
+// shared FFI singleton.
+#![allow(clippy::new_without_default)]
+
+//! Source locations. Every IR node carries a [`Location`] for diagnostics: an [`UnknownLoc`], a
+//! [`SourceLoc`] span in a source, or a [`CallSiteLoc`] that pairs a location with its caller's.
+
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// C++ has one `UnknownLoc`, which `UnknownLoc::new` returns: `opaque` generates no allocator for
+// another one. It has no fields, so it loses no field access.
+// tvm-ffi-stubgen(object): ir.UnknownLoc(opaque)
+// `no_new` generates no allocator for the abstract base: a value is one of its subtypes.
+// tvm-ffi-stubgen(object): ir.Location(no_new)
+// `SourceName::get` interns names; `no_new` generates no allocator for a second object of a name.
+// tvm-ffi-stubgen(object): ir.SourceName(no_new)
+// tvm-ffi-stubgen(field): ir.SourceLoc.start_line(type = i32)
+// tvm-ffi-stubgen(field): ir.SourceLoc.start_column(type = i32)
+// tvm-ffi-stubgen(field): ir.SourceLoc.end_line(type = i32)
+// tvm-ffi-stubgen(field): ir.SourceLoc.end_column(type = i32)
+// Names the hand-written wrappers use: the import section keeps them even when no generated block
+// does.
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+
+// tvm-ffi-stubgen(begin): import-section
+use crate::ir::support;
+use std::ops::Deref;
+use tvm_ffi::IntoArg;
+use tvm_ffi::Object;
+use tvm_ffi::ObjectArc;
+use tvm_ffi::String;
+// tvm-ffi-stubgen(end)
+
+/// Where an IR node comes from, for diagnostics: an [`UnknownLoc`], a [`SourceLoc`] or a
+/// [`CallSiteLoc`].
+///
+/// A constructor takes its `loc` as any location, such as a `SourceLoc` or [`UNKNOWN_LOC`].
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{PrimType, PrimVar, SourceLoc, SourceName, Var};
+/// use tvm_tirx::tvm_ffi::ObjectRefCore;
+///
+/// let span = SourceLoc::new(SourceName::get("kernel.py"), 3, 1, 3, 10);
+///
+/// let x = PrimVar::new("x", PrimType::int(32), &span);
+/// assert!(x.loc.same_as(&span));
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
+// tvm-ffi-stubgen(begin): object/ir.Location
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Location {
+    data_: ObjectArc<LocationObj>,
+}
+
+/// The object behind [`Location`].
+// Complete: reflected fields fill [24, 24) exactly.
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[object(type_key = "ir.Location", immutable, rs_parent)]
+pub struct LocationObj {
+    base_: Object,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<LocationObj>() == 24);
+    assert!(::core::mem::align_of::<LocationObj>() == 8);
+};
+
+#[allow(missing_docs)]
+impl LocationObj {
+    pub fn new() -> Self {
+        let base_ = Object::new();
+        Self { base_ }
+    }
+}
+// tvm-ffi-stubgen(end)
+
+/// The location of a node with no source information, a single shared object.
+// tvm-ffi-stubgen(begin): object/ir.UnknownLoc
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct UnknownLoc {
+    data_: ObjectArc<UnknownLocObj>,
+}
+
+/// The object behind [`UnknownLoc`].
+// Opaque: vetoed by directive although the layout is reproducible. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[object(type_key = "ir.UnknownLoc", final, immutable)]
+pub struct UnknownLocObj {
+    base_: LocationObj,
+}
+
+impl Deref for UnknownLocObj {
+    type Target = LocationObj;
+    fn deref(&self) -> &LocationObj {
+        &self.base_
+    }
+}
+
+tvm_ffi::impl_object_ref_upcast!(UnknownLoc => Location);
+// tvm-ffi-stubgen(end)
+
+impl UnknownLoc {
+    /// Return the shared unknown location, which IR constructors default to, fetched once per
+    /// thread (`ir.UnknownLoc`).
+    pub fn new() -> Self {
+        thread_local! {
+            static UNKNOWN_LOC: std::cell::OnceCell<UnknownLoc> = const { std::cell::OnceCell::new() };
+        }
+        support::shared(&UNKNOWN_LOC, || {
+            tvm_ffi::cached_global_func!("ir.UnknownLoc").call_tuple(())?.try_into()
+        })
+    }
+}
+
+/// A marker for the unknown location as the `loc` argument of a constructor:
+/// `Var::new("x", ty, UNKNOWN_LOC)`.
+///
+/// [`UnknownLoc::new`] is the same location as a value.
+#[derive(Clone, Copy, Debug)]
+pub struct Unknown;
+
+/// The unknown location, as the `loc` argument of a constructor.
+pub const UNKNOWN_LOC: Unknown = Unknown;
+
+impl From<Unknown> for Location {
+    fn from(_: Unknown) -> Self {
+        UnknownLoc::new().into()
+    }
+}
+
+impl IntoArg<Location> for Unknown {
+    type Output = Location;
+    #[inline]
+    fn into_arg(self) -> Location {
+        self.into()
+    }
+    #[inline]
+    fn into_owned(self) -> Location {
+        self.into()
+    }
+}
+
+/// The span from `start_line`, `start_column` to `end_line`, `end_column` in the source
+/// `source_name`, in the line and column numbering of the frontend that produced it.
+// tvm-ffi-stubgen(begin): object/ir.SourceLoc
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct SourceLoc {
+    data_: ObjectArc<SourceLocObj>,
+}
+
+/// The object behind [`SourceLoc`].
+// Complete: reflected fields fill [24, 48) exactly.
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[object(type_key = "ir.SourceLoc", final, immutable)]
+pub struct SourceLocObj {
+    base_: LocationObj,
+    pub source_name: SourceName,
+    pub start_line: i32,
+    pub start_column: i32,
+    pub end_line: i32,
+    pub end_column: i32,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<SourceLocObj>() == 48);
+    assert!(::core::mem::align_of::<SourceLocObj>() == 8);
+};
+
+impl Deref for SourceLocObj {
+    type Target = LocationObj;
+    fn deref(&self) -> &LocationObj {
+        &self.base_
+    }
+}
+
+#[allow(missing_docs)]
+impl SourceLocObj {
+    pub(crate) fn new(
+        source_name: SourceName,
+        start_line: i32,
+        start_column: i32,
+        end_line: i32,
+        end_column: i32,
+    ) -> Self {
+        let base_ = LocationObj::new();
+        Self { base_, source_name, start_line, start_column, end_line, end_column }
+    }
+}
+
+#[allow(missing_docs)]
+impl SourceLoc {
+    /// Create a `SourceLoc` from its field values.
+    pub fn new(
+        source_name: impl IntoArg<SourceName>,
+        start_line: i32,
+        start_column: i32,
+        end_line: i32,
+        end_column: i32,
+    ) -> Self {
+        let obj = SourceLocObj::new(
+            source_name.into_owned(),
+            start_line,
+            start_column,
+            end_line,
+            end_column,
+        );
+        Self { data_: ObjectArc::new(obj) }
+    }
+}
+
+tvm_ffi::impl_object_ref_upcast!(SourceLoc => Location);
+// tvm-ffi-stubgen(end)
+
+// `ir.SourceLoc` stores its arguments as given: the generated `SourceLoc::new` is the same.
+
+/// The location `callee` of a node, together with the location `caller` of the call site it
+/// comes from.
+// tvm-ffi-stubgen(begin): object/ir.CallSiteLoc
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct CallSiteLoc {
+    data_: ObjectArc<CallSiteLocObj>,
+}
+
+/// The object behind [`CallSiteLoc`].
+// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[object(type_key = "ir.CallSiteLoc", final, immutable)]
+pub struct CallSiteLocObj {
+    base_: LocationObj,
+    pub callee: Location,
+    pub caller: Location,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<CallSiteLocObj>() == 40);
+    assert!(::core::mem::align_of::<CallSiteLocObj>() == 8);
+};
+
+impl Deref for CallSiteLocObj {
+    type Target = LocationObj;
+    fn deref(&self) -> &LocationObj {
+        &self.base_
+    }
+}
+
+#[allow(missing_docs)]
+impl CallSiteLocObj {
+    pub(crate) fn new(callee: Location, caller: Location) -> Self {
+        let base_ = LocationObj::new();
+        Self { base_, callee, caller }
+    }
+}
+
+#[allow(missing_docs)]
+impl CallSiteLoc {
+    /// Create a `CallSiteLoc` from its field values.
+    pub fn new(callee: impl IntoArg<Location>, caller: impl IntoArg<Location>) -> Self {
+        let obj = CallSiteLocObj::new(callee.into_owned(), caller.into_owned());
+        Self { data_: ObjectArc::new(obj) }
+    }
+}
+
+tvm_ffi::impl_object_ref_upcast!(CallSiteLoc => Location);
+// tvm-ffi-stubgen(end)
+
+// `ir.CallSiteLoc` stores its arguments as given: the generated `CallSiteLoc::new` is the same.
+
+/// The name of a source, such as a file name; [`SourceName::get`] returns the shared object for a
+/// name.
+// tvm-ffi-stubgen(begin): object/ir.SourceName
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct SourceName {
+    data_: ObjectArc<SourceNameObj>,
+}
+
+/// The object behind [`SourceName`].
+// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[object(type_key = "ir.SourceName", final, immutable)]
+pub struct SourceNameObj {
+    base_: Object,
+    pub name: String,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<SourceNameObj>() == 40);
+    assert!(::core::mem::align_of::<SourceNameObj>() == 8);
+};
+// tvm-ffi-stubgen(end)
+
+impl SourceName {
+    /// Return the source name `name`, interned so that equal names share one object
+    /// (`ir.SourceName`).
+    pub fn get(name: &str) -> Self {
+        support::infallible(
+            tvm_ffi::cached_global_func!("ir.SourceName")
+                .call_tuple((String::from(name),))
+                .and_then(|any| any.try_into()),
+        )
+    }
+}
